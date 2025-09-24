@@ -1,0 +1,441 @@
+<!doctype html>
+<!--
+  Nik Optic - Static Catalog (CSV-driven)
+  Simplified version: reads products ONLY from the provided Google Sheets CSV.
+  - No management/admin text shown.
+  - Persian UI (RTL). UI strings are Persian; CSV columns are English as in your sheet.
+  Files:
+    - index.html  (this file)
+    - config.js   (must be placed alongside index.html)
+    - assets/ (preview.png and placeholder.png)
+  Usage:
+    1. Put index.html, config.js and assets/ in same folder.
+    2. Open index.html in browser or publish to GitHub Pages.
+-->
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>نیک اپتیک</title>
+  <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css" rel="stylesheet">
+  <style>
+    :root{
+      --primary: #0a6ebd;
+      --accent:  #f5a524;
+      --bg:      #ffffff;
+      --card-bg: #fff;
+      --text:    #111827;
+      --muted:   #6b7280;
+      --radius: 12px;
+      --gap: 12px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:'Vazirmatn', sans-serif; background:var(--bg); color:var(--text); padding:16px;}
+    button, input, select {font-family: 'Vazirmatn', sans-serif;}
+    .container{max-width:1100px;margin:0 auto}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:12px}
+    .logo img{width:72px;height:72px;border-radius:10px;object-fit:contain}
+    .title{font-weight:800;font-size:1.2rem}
+    .subtitle{color:var(--muted);font-size:1rem}
+    /* Filters */
+    .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    input[type=search]{flex:1;padding:10px;border-radius:10px;border:1px solid #eee}
+    select,button,input[type=number]{padding:8px;border-radius:10px;border:1px solid #eee}
+    .btn{background:var(--primary);color:white;border:none;padding:8px 12px;border-radius:10px;cursor:pointer}
+    .btn.ghost{background:transparent;color:var(--primary);border:1px solid var(--primary)}
+    /* grid */
+    .grid{display:grid;grid-template-columns:1fr;gap:var(--gap)}
+    @media(min-width:500px){.grid{grid-template-columns:repeat(2,1fr)}}
+    @media(min-width:720px){.grid{grid-template-columns:repeat(3,1fr)}}
+    @media(min-width:1000px){.grid{grid-template-columns:repeat(4,1fr)}}
+    .card{background:var(--card-bg);border-radius:var(--radius);overflow:hidden;box-shadow:0 6px 18px rgba(15,23,42,0.06);display:flex;flex-direction:column;cursor:pointer}
+    .media{position:relative;padding-top:70%}
+    .media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+    .oos{position:absolute;inset:0;background:rgba(255,255,255,0.6);display:flex;align-items:center;justify-content:center;font-weight:800;color:#c02323}
+    .card-body{padding:12px;display:flex;flex-direction:column;gap:8px;flex-grow:1}
+    .meta{display:flex;justify-content:space-between;align-items:flex-start}
+    .brand{color:var(--muted);font-size:0.85rem; background-color: #f3f4f6; padding: 2px 6px; border-radius: 6px;}
+    .name{font-weight:700; font-size: 1rem; line-height: 1.4;}
+    .price{color:var(--primary);font-weight:800; margin-top: auto; padding-top: 8px;}
+    .actions{display:flex;gap:8px}
+    /* modal */
+    .backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:60;padding:16px}
+    .backdrop.active{display:flex}
+    .modal{width:100%;max-width:900px;background:white;border-radius:12px;overflow:hidden}
+    .modal .inner{display:flex;gap:12px;padding:12px;flex-wrap:wrap}
+    .modal .gallery{flex:1;min-width:260px}
+    .modal img{width:100%;height:360px;object-fit:cover;border-radius:8px}
+    .modal .info{flex:1;min-width:260px;display:flex;flex-direction:column;gap:10px}
+    .close{background:transparent;border:none;font-size:20px;cursor:pointer}
+    /* FAB for AI */
+    .fab{position:fixed;left:16px;bottom:22px;background:var(--accent);color:white;padding:12px 14px;border-radius:999px;border:none;z-index:80;cursor:pointer}
+    #ai-embed{position:fixed;left:16px;bottom:80px;width:320px;height:420px;background:white;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,0.12);display:none;overflow:hidden;z-index:90}
+    #ai-embed.active{display:block}
+    #ai-embed iframe{width:100%;height:100%;border:0}
+    /* Hide scrollbar but keep functionality */
+    #brand-chips::-webkit-scrollbar { display: none; }
+    #brand-chips { -ms-overflow-style: none; scrollbar-width: none; }
+    /* scroll to top */
+    #scroll-top{position:fixed;right:16px;bottom:22px;background:var(--primary);color:white;width:48px;height:48px;border-radius:999px;border:none;z-index:80;cursor:pointer;display:none;align-items:center;justify-content:center;font-size:24px;opacity:0;transition:opacity .3s, transform .3s;transform:translateY(10px)}
+    #scroll-top.visible{opacity:1;transform:translateY(0)}
+    /* misc */
+    .empty{padding:30px;text-align:center;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="container" id="app">
+    <header>
+      <div class="logo"><img src="assets/logo.png" alt="logo" onerror="this.src='assets/placeholder.png'"></div>
+      <div>
+        <div class="title">نیک اپتیک</div>
+        <div class="subtitle">ویترین آنلاین عینک آفتابی و طبی</div>
+      </div>
+    </header>
+
+    <div class="filters" role="region" aria-label="فیلترها">
+      <input id="search" type="search" placeholder="جستجو در عنوان، برند، توضیحات..." aria-label="جستجو">
+      <select id="sort" aria-label="مرتب‌سازی">
+        <option value="relevance">مرتبط‌ترین</option>
+        <option value="price_asc">قیمت صعودی</option>
+        <option value="price_desc">قیمت نزولی</option>
+        <option value="newest">جدیدترین</option>
+      </select>
+      <button class="btn" id="filters-btn">فیلترها</button>
+      <button class="btn ghost" id="reset-btn">تنظیمات مجدد</button>
+    </div>
+
+    <div id="filters-panel" style="display:none;margin-bottom:12px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <div style="width: 100%;">
+          <div style="font-size:0.9rem;color:var(--muted)">برند</div>
+          <div id="brand-chips" style="display:flex;gap:8px;overflow-x: auto; padding-bottom: 10px; white-space: nowrap;"></div>
+        </div>
+        <div>
+          <div style="font-size:0.9rem;color:var(--muted)">جنسیت</div>
+          <div id="gender-chips" style="display:flex;gap:8px">
+            <button class="btn ghost chip active" data-g="all">همه</button>
+            <button class="btn ghost chip" data-g="male">مردانه</button>
+            <button class="btn ghost chip" data-g="female">زنانه</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:0.9rem;color:var(--muted)">قیمت</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="min-price" type="number" placeholder="کمینه">
+            <input id="max-price" type="number" placeholder="بیشینه">
+          </div>
+          <div id="price-range" style="font-size:0.85rem;color:var(--muted)"></div>
+        </div>
+      </div>
+    </div>
+
+    <main>
+      <div id="loading" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+        <div style="height:200px;background:#f3f4f6;border-radius:12px"></div>
+        <div style="height:200px;background:#f3f4f6;border-radius:12px"></div>
+      </div>
+
+      <div id="grid" class="grid" style="margin-top:12px"></div>
+
+      <div id="empty" class="empty" style="display:none">هیچ محصولی یافت نشد.</div>
+    </main>
+  </div>
+
+  <!-- modal -->
+  <div id="backdrop" class="backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #f1f1f1">
+        <div>
+          <div id="modal-title" style="font-weight:800"></div>
+          <div id="modal-brand" style="color:var(--muted)"></div>
+        </div>
+        <button class="close" id="modal-close" aria-label="بستن">×</button>
+      </div>
+      <div class="inner">
+        <div class="gallery"><img id="modal-img" src="assets/placeholder.png" alt=""></div>
+        <div class="info">
+          <div id="modal-price" style="font-weight:800;color:var(--primary)"></div>
+          <div id="modal-desc" style="color:var(--muted)"></div>
+          <div id="modal-stock" style="font-weight:700"></div>
+          <div style="margin-top:auto;display:flex;gap:8px">
+            <button class="btn" id="order-btn">سفارش</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="fab" id="fab">مشاور هوش مصنوعی</button>
+  <div id="ai-embed" aria-hidden="true">
+    <div style="display:flex;justify-content:flex-end;padding:8px"><button class="close" id="ai-close">×</button></div>
+    <div id="n8n-chat" style="height: 100%;"></div>
+  </div>
+
+  <button id="scroll-top" title="رفتن به بالا">↑</button>
+
+  <script src="https://cdn.jsdelivr.net/npm/@n8n/chat@latest/dist/chat.js"></script>
+  <script src="config.js"></script>
+  <script>
+  (function(){
+    const CSV = typeof CSV_CONFIG !== 'undefined' ? CSV_CONFIG.CSV_URL : null;
+    const MAP = (typeof CSV_CONFIG !== 'undefined' && CSV_CONFIG.FIELD_MAP) ? CSV_CONFIG.FIELD_MAP : {};
+    const ORDER_DEFAULT = (typeof CSV_CONFIG !== 'undefined') ? CSV_CONFIG.ORDER_DEFAULT : '';
+    const grid = document.getElementById('grid');
+    const loading = document.getElementById('loading');
+    const empty = document.getElementById('empty');
+
+    function parseCSV(text){
+      const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
+      if(!lines.length) return [];
+      const headers = parseRow(lines[0]);
+      const rows = [];
+      for(let i=1;i<lines.length;i++){
+        const cols = parseRow(lines[i]);
+        const obj = {};
+        for(let j=0;j<headers.length;j++){
+          obj[headers[j].trim()] = cols[j] ? cols[j].trim() : '';
+        }
+        rows.push(obj);
+      }
+      return rows;
+    }
+    function parseRow(row){
+      const res=[]; let cur=''; let inQ=false;
+      for(let i=0;i<row.length;i++){
+        const ch=row[i];
+        if(ch === '"'){ if(inQ && row[i+1]==='"'){ cur+='"'; i++; } else inQ=!inQ; }
+        else if(ch === ',' && !inQ){ res.push(cur); cur=''; } else cur+=ch;
+      }
+      res.push(cur); return res;
+    }
+
+    function norm(r){
+      const get=(keys)=>{ for(const k of keys){ if(r[k]!==undefined) return r[k]; } return ''; };
+      const id = get([MAP.id||'id','id']);
+      const title = get([MAP.title||'name','name','title']);
+      const priceRaw = get([MAP.price||'price','price']) || '';
+      const price = Number((priceRaw||'').toString().replace(/[^\d]/g,'')) || 0;
+      const stockRaw = get([MAP.available||'stock','stock','available']) || '';
+      const available = !(stockRaw.toString().toLowerCase().startsWith('no') || stockRaw.toString().toLowerCase().includes('0') || stockRaw.toString().toLowerCase().includes('ناموجود'));
+      const genderRaw = get([MAP.gender||'male or female','male or female','gender']) || '';
+      let gender='unisex';
+      if(genderRaw.toString().toLowerCase().includes('male') || genderRaw.toString().toLowerCase().includes('مرد')) gender='male';
+      if(genderRaw.toString().toLowerCase().includes('female') || genderRaw.toString().toLowerCase().includes('زن')) gender='female';
+      const brand = get([MAP.brand||'brand','brand']) || '';
+      const image = get([MAP.image||'image','image']) || 'assets/placeholder.png';
+      const description = get([MAP.description||'description','description']) || '';
+      return { id, title, price, available, gender, brand, image, description, raw: r };
+    }
+
+    function render(items){
+      loading.style.display='none';
+      grid.innerHTML='';
+      if(!items.length){ empty.style.display='block'; return; } else empty.style.display='none';
+      const frag = document.createDocumentFragment();
+      items.forEach(p=>{
+        const card = document.createElement('article'); card.className='card'; card.tabIndex=0;
+        const media = document.createElement('div'); media.className='media';
+        const img = document.createElement('img'); img.src = p.image; img.alt=p.title; img.loading='lazy';
+        img.onerror = ()=>{ img.src='assets/placeholder.png' };
+        media.appendChild(img);
+        if(!p.available){
+          const o = document.createElement('div'); o.className='oos'; o.innerText='ناموجود'; media.appendChild(o);
+        }
+        const body = document.createElement('div'); body.className='card-body';
+        const meta = document.createElement('div'); meta.className='meta';
+        const name = document.createElement('div'); name.className='name'; name.innerText=p.title;
+        const brand = document.createElement('div'); brand.className='brand'; brand.innerText=p.brand;
+        const nameWrapper = document.createElement('div');
+        nameWrapper.appendChild(name);
+        meta.appendChild(nameWrapper);
+        meta.appendChild(brand);
+        const price = document.createElement('div'); price.className='price'; price.innerText = p.price ? p.price.toLocaleString() + ' تومان' : '—';
+        const actions = document.createElement('div'); actions.className='actions';
+        const view = document.createElement('button'); view.className='btn'; view.innerText='مشاهده'; view.onclick = ()=>openModal(p);
+        const order = document.createElement('button'); order.className='btn ghost'; order.innerText='سفارش'; order.disabled = !p.available;
+        order.onclick = (e)=>{ e.stopPropagation(); triggerOrder(p); };
+        actions.appendChild(view); actions.appendChild(order);
+
+        body.appendChild(meta); body.appendChild(price); body.appendChild(actions);
+        card.appendChild(media); card.appendChild(body);
+        card.addEventListener('click', ()=>openModal(p));
+        frag.appendChild(card);
+      });
+      grid.appendChild(frag);
+    }
+
+    let DATA = [];
+    const FILTER = { brands:new Set(), gender:'all', q:'', min:0, max:Infinity, sort:'relevance' };
+
+    function compute(){
+      let items = [...DATA];
+      if(FILTER.q){
+        const q = FILTER.q.toLowerCase();
+        items = items.filter(i => i.title.toLowerCase().includes(q) || i.brand.toLowerCase().includes(q) || i.description.toLowerCase().includes(q));
+      }
+      if(FILTER.gender !== 'all'){
+        items = items.filter(i => i.gender === FILTER.gender);
+      }
+      if(FILTER.brands.size > 0){
+        items = items.filter(i => FILTER.brands.has(i.brand));
+      }
+      if(FILTER.min > 0){
+        items = items.filter(i => i.price >= FILTER.min);
+      }
+      if(FILTER.max < Infinity){
+        items = items.filter(i => i.price <= FILTER.max);
+      }
+      switch(FILTER.sort){
+        case 'price_asc': items.sort((a,b)=>a.price - b.price); break;
+        case 'price_desc': items.sort((a,b)=>b.price - a.price); break;
+      }
+      return items;
+    }
+
+    document.getElementById('gender-chips').addEventListener('click', (e)=>{
+      if(e.target.tagName !== 'BUTTON') return;
+      document.querySelectorAll('#gender-chips .chip').forEach(c=>c.classList.remove('active'));
+      e.target.classList.add('active');
+      FILTER.gender = e.target.dataset.g;
+      render(compute());
+    });
+
+    document.getElementById('filters-btn').addEventListener('click', ()=>{
+      const p = document.getElementById('filters-panel');
+      p.style.display = p.style.display === 'block' ? 'none' : 'block';
+    });
+    document.getElementById('reset-btn').addEventListener('click', ()=>{
+      FILTER.brands.clear(); FILTER.gender='all'; FILTER.q=''; FILTER.min=0; FILTER.max=Infinity; document.getElementById('search').value=''; document.getElementById('min-price').value=''; document.getElementById('max-price').value=''; document.getElementById('sort').value='relevance';
+      document.querySelectorAll('#brand-chips button').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('#gender-chips .chip').forEach(c=>c.classList.remove('active'));
+      document.querySelector('#gender-chips .chip[data-g="all"]').classList.add('active');
+      render(DATA);
+    });
+    document.getElementById('search').addEventListener('input', debounce((e)=>{ FILTER.q = e.target.value; render(compute()); }, 300));
+    document.getElementById('sort').addEventListener('change', (e)=>{ FILTER.sort = e.target.value; render(compute()); });
+    document.getElementById('min-price').addEventListener('change', (e)=>{ FILTER.min = Number(e.target.value) || 0; render(compute()); });
+    document.getElementById('max-price').addEventListener('change', (e)=>{ FILTER.max = Number(e.target.value) || Infinity; render(compute()); });
+
+    function debounce(fn,wait){ let t; return function(...a){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,a),wait) } }
+
+    function populateBrands(){
+      const map = {};
+      DATA.forEach(d=>{ const b = d.brand||'بدون برند'; map[b]= (map[b]||0)+1; });
+      const holder = document.getElementById('brand-chips'); holder.innerHTML='';
+      Object.keys(map).sort().forEach(b=>{
+        const btn = document.createElement('button'); btn.className='btn ghost'; btn.innerText = `${b} (${map[b]})`; btn.dataset.brand = b;
+        btn.addEventListener('click', ()=>{ btn.classList.toggle('active'); if(btn.classList.contains('active')) FILTER.brands.add(b); else FILTER.brands.delete(b); render(compute()); });
+        holder.appendChild(btn);
+      });
+    }
+
+    const backdrop = document.getElementById('backdrop');
+    const modalImg = document.getElementById('modal-img');
+    function openModal(p){
+      backdrop.classList.add('active'); backdrop.setAttribute('aria-hidden','false');
+      document.getElementById('modal-title').innerText = p.title;
+      document.getElementById('modal-brand').innerText = p.brand;
+      modalImg.src = p.image || 'assets/placeholder.png';
+      document.getElementById('modal-price').innerText = p.price ? p.price.toLocaleString() + ' تومان' : '—';
+      document.getElementById('modal-desc').innerText = p.description || '';
+      document.getElementById('modal-stock').innerText = p.available ? 'موجود' : 'ناموجود';
+      document.getElementById('order-btn').disabled = !p.available;
+      document.getElementById('order-btn').onclick = ()=>triggerOrder(p);
+      document.getElementById('contact-btn').onclick = ()=>{ window.dispatchEvent(new CustomEvent('openAiOrder',{detail:p})); alert('رویداد ارسال شد به مشاور'); };
+    }
+    document.getElementById('modal-close').addEventListener('click', closeModal);
+    function closeModal(){ backdrop.classList.remove('active'); backdrop.setAttribute('aria-hidden','true'); }
+    window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeModal(); });
+
+    function triggerOrder(p){
+      if(ORDER_DEFAULT && ORDER_DEFAULT.includes('{message}')){
+        const msg = encodeURIComponent(`سفارش: ${p.title} (کد: ${p.id || ''})`);
+        const url = ORDER_DEFAULT.replace('{message}', msg);
+        window.open(url,'_blank');
+        return;
+      }
+      if(ORDER_DEFAULT && ORDER_DEFAULT.startsWith('http')){ window.open(ORDER_DEFAULT,'_blank'); return; }
+      window.dispatchEvent(new CustomEvent('openAiOrder',{detail:p}));
+      alert('رویداد openAiOrder ارسال شد');
+    }
+
+    let chatInitialized = false;
+    document.getElementById('fab').addEventListener('click', ()=>{
+      const ai = document.getElementById('ai-embed');
+      ai.classList.toggle('active');
+      if(ai.classList.contains('active') && !chatInitialized){
+        chatInitialized = true;
+        createChat({
+          webhookUrl: 'https://89255.sevenhost.cloud/webhook/a42c93e4-c882-44b2-98b2-a12564817408/chat',
+          webhookConfig: {
+            method: 'POST',
+            headers: {}
+          },
+          target: '#n8n-chat',
+          mode: 'window',
+          chatInputKey: 'chatInput',
+          chatSessionKey: 'sessionId',
+          loadPreviousSession: true,
+          metadata: {},
+          showWelcomeScreen: false,
+          defaultLanguage: 'en',
+          initialMessages: [
+            'درود بر شما👋',
+            'هر سوالی دارید بپرسید... با سلام شروع کنید:))'
+          ],
+          i18n: {
+            en: {
+              title: 'خوش آمدید',
+              subtitle: "پشتیبان همه روزه و 24 ساعته نیک اپتیک",
+              footer: '',
+              getStarted: 'مکالمه جدید',
+              inputPlaceholder: 'سوالتان را بفرمایید',
+            },
+          },
+          enableStreaming: false,
+        });
+      }
+    });
+    document.getElementById('ai-close').addEventListener('click', ()=>{ document.getElementById('ai-embed').classList.remove('active') });
+
+    const scrollTopBtn = document.getElementById('scroll-top');
+    window.addEventListener('scroll', ()=>{
+      if(window.scrollY > 300){
+        scrollTopBtn.style.display = 'flex';
+        setTimeout(()=>scrollTopBtn.classList.add('visible'), 10);
+      } else {
+        scrollTopBtn.classList.remove('visible');
+        setTimeout(()=>scrollTopBtn.style.display = 'none', 300);
+      }
+    });
+    scrollTopBtn.addEventListener('click', ()=>window.scrollTo({top:0, behavior:'smooth'}));
+
+    async function init(){
+      try{
+        const res = await fetch(CSV);
+        if(!res.ok) throw new Error('fetch failed');
+        const txt = await res.text();
+        const rows = parseCSV(txt);
+        DATA = rows.map(norm);
+        populateBrands();
+        const prices = DATA.map(d=>d.price).filter(p=>p>0);
+        const min = prices.length?Math.min(...prices):0;
+        const max = prices.length?Math.max(...prices):0;
+        document.getElementById('min-price').placeholder = min;
+        document.getElementById('max-price').placeholder = max;
+        document.getElementById('price-range').innerText = `بین ${min.toLocaleString()} تا ${max.toLocaleString()}`;
+        render(DATA);
+      }catch(err){
+        console.error(err);
+        loading.style.display='none';
+        empty.style.display='block';
+        empty.innerText = 'خطا در بارگذاری داده‌ها از Google Sheets.';
+      }
+    }
+    init();
+    window.NIK = { getData: ()=>DATA };
+  })();
+  </script>
+</body>
+</html>
