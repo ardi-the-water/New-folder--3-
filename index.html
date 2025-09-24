@@ -82,6 +82,18 @@
     /* misc */
     .empty{padding:30px;text-align:center;color:var(--muted)}
   </style>
+  <!-- استایل چت n8n -->
+  <link href="https://cdn.jsdelivr.net/npm/@n8n/chat/dist/style.css" rel="stylesheet" />
+  <style>
+    /* راست‌چین کردن چت */
+    #n8n-chat {
+      direction: rtl !important;
+      text-align: right !important;
+    }
+    #n8n-chat * {
+      font-family: "Vazirmatn", sans-serif !important; /* Using existing font */
+    }
+  </style>
 </head>
 <body>
   <div class="container" id="app">
@@ -166,16 +178,31 @@
     </div>
   </div>
 
-  <button class="fab" id="fab">مشاور هوش مصنوعی</button>
-  <div id="ai-embed" aria-hidden="true">
-    <div style="display:flex;justify-content:flex-end;padding:8px"><button class="close" id="ai-close">×</button></div>
-    <div id="n8n-chat" style="height: 100%;"></div>
-  </div>
-
   <button id="scroll-top" title="رفتن به بالا">↑</button>
 
-  <script src="https://cdn.jsdelivr.net/npm/@n8n/chat@latest/dist/chat.js"></script>
   <script src="config.js"></script>
+  <script type="module">
+    import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js';
+
+    createChat({
+      webhookUrl: 'https://89255.sevenhost.cloud/webhook/a42c93e4-c882-44b2-98b2-a12564817408/chat',
+      mode: 'popup', // Changed to popup to have a button
+      defaultLanguage: 'en',
+      initialMessages: [
+        'سلام! 👋',
+        'من هوش مصنوعی نیک اپتیک هستم. چطور می‌تونم کمکتون کنم؟'
+      ],
+      i18n: {
+        en: {
+          title: 'سلام! 👋',
+          subtitle: 'چت را شروع کنید. ما ۲۴/۷ در دسترس شما هستیم.',
+          footer: '',
+          getStarted: 'شروع گفتگو',
+          inputPlaceholder: 'سؤال خود را بنویسید...',
+        },
+      },
+    });
+  </script>
   <script>
   (function(){
     const CSV = typeof CSV_CONFIG !== 'undefined' ? CSV_CONFIG.CSV_URL : null;
@@ -359,45 +386,6 @@
       window.dispatchEvent(new CustomEvent('openAiOrder',{detail:p}));
       alert('رویداد openAiOrder ارسال شد');
     }
-
-    let chatInitialized = false;
-    document.getElementById('fab').addEventListener('click', ()=>{
-      const ai = document.getElementById('ai-embed');
-      ai.classList.toggle('active');
-      if(ai.classList.contains('active') && !chatInitialized){
-        chatInitialized = true;
-        createChat({
-          webhookUrl: 'https://89255.sevenhost.cloud/webhook/a42c93e4-c882-44b2-98b2-a12564817408/chat',
-          webhookConfig: {
-            method: 'POST',
-            headers: {}
-          },
-          target: '#n8n-chat',
-          mode: 'window',
-          chatInputKey: 'chatInput',
-          chatSessionKey: 'sessionId',
-          loadPreviousSession: true,
-          metadata: {},
-          showWelcomeScreen: false,
-          defaultLanguage: 'en',
-          initialMessages: [
-            'درود بر شما👋',
-            'هر سوالی دارید بپرسید... با سلام شروع کنید:))'
-          ],
-          i18n: {
-            en: {
-              title: 'خوش آمدید',
-              subtitle: "پشتیبان همه روزه و 24 ساعته نیک اپتیک",
-              footer: '',
-              getStarted: 'مکالمه جدید',
-              inputPlaceholder: 'سوالتان را بفرمایید',
-            },
-          },
-          enableStreaming: false,
-        });
-      }
-    });
-    document.getElementById('ai-close').addEventListener('click', ()=>{ document.getElementById('ai-embed').classList.remove('active') });
 
     const scrollTopBtn = document.getElementById('scroll-top');
     window.addEventListener('scroll', ()=>{
